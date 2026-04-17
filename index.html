@@ -3,30 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BikePro Cloud</title>
+    <title>BikePro - Cloud Edition</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
         :root { --primary: #00b894; --secondary: #0984e3; --dark: #2d3436; --light: #f1f2f6; --danger: #d63031; }
-        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; touch-action: manipulation; }
         body { background: var(--light); margin: 0; padding: 10px; text-align: center; }
         
-        /* الهيدر والأزرار */
-        .header { background: white; padding: 15px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 15px; }
-        .btn { padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; border: none; cursor: pointer; transition: 0.2s; }
+        .header { background: white; padding: 15px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 10px; position: relative; }
+        .btn { padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; border: none; cursor: pointer; }
         .btn-primary { background: var(--secondary); color: white; }
-        .lang-btn { position: absolute; top: 20px; left: 20px; width: auto; padding: 5px 10px; font-size: 0.8rem; background: var(--dark); color: white; }
+        .lang-btn { position: absolute; top: 15px; left: 15px; width: auto; padding: 5px 10px; font-size: 0.7rem; background: var(--dark); color: white; border-radius: 8px; z-index: 10; }
 
-        /* قائمة اختيار السياكل (مثل الصورة) */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
-        .modal-content { background: white; padding: 20px; border-radius: 25px; width: 90%; max-width: 400px; }
-        .grid-select { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 15px 0; }
-        .grid-item { background: #eee; padding: 10px 5px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .search-container { margin-bottom: 15px; }
+        .search-input { width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #ddd; font-size: 1rem; text-align: center; outline: none; }
+
+        /* نافذة القائمة الكبيرة (1-200) */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 15px; border-radius: 25px; width: 95%; max-height: 85vh; overflow-y: auto; }
+        .grid-select { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 15px 0; }
+        .grid-item { background: #f0f0f0; padding: 15px 2px; border-radius: 8px; font-weight: bold; font-size: 0.9rem; cursor: pointer; border: 1px solid #ddd; }
         .grid-item:active { background: var(--primary); color: white; }
 
-        /* عرض السياكل النشطة */
-        #activeRentals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        .bike-box { background: white; border-radius: 15px; padding: 15px 5px; border-bottom: 5px solid var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        #activeRentals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .bike-box { background: white; border-radius: 12px; padding: 10px 2px; border-bottom: 4px solid var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .state-expired { border-bottom-color: var(--danger); animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0.5; } }
     </style>
@@ -36,20 +37,24 @@
 <button class="btn lang-btn" onclick="toggleLang()">EN/AR</button>
 
 <div class="header">
-    <h2 id="title">بي برو - سحابي</h2>
-    <button id="adminLoginBtn" class="btn btn-primary" style="width:auto; padding:5px 20px;" onclick="checkAdmin()">دخول المدير</button>
+    <h2 id="title" style="margin-top:20px;">بي برو - سحابي</h2>
+    <button id="adminLoginBtn" class="btn btn-primary" style="width:auto; padding:5px 20px; font-size:0.8rem;" onclick="checkAdmin()">دخول المدير</button>
     <div id="adminTools" style="display:none; margin-top:10px;">
-        <button class="btn btn-primary" onclick="openBikeList()">➕ إضافة سيكل (قائمة)</button>
+        <button class="btn btn-primary" onclick="openBikeList()">➕ قائمة السياكل (1-200)</button>
     </div>
+</div>
+
+<div class="search-container">
+    <input type="text" id="searchInput" class="search-input" placeholder="ابحث عن رقم سيكل..." oninput="renderBikes()">
 </div>
 
 <div id="activeRentals"></div>
 
 <div id="bikeModal" class="modal">
     <div class="modal-content">
-        <h3 id="modalTitle">اختر السيكل</h3>
+        <h3 id="modalTitle">اختر السيكل (1-200)</h3>
         <div class="grid-select" id="bikeGrid"></div>
-        <button class="btn" style="background:#636e72; color:white;" onclick="closeModal()">إغلاق</button>
+        <button class="btn" style="background:var(--dark); color:white; margin-top:10px;" onclick="closeModal()">إغلاق / Close</button>
     </div>
 </div>
 
@@ -69,22 +74,23 @@
     const db = firebase.database();
     let isAdmin = false;
     let currentLang = 'ar';
+    let allBikes = {};
 
     const text = {
-        ar: { title: "بي برو - مراقب", login: "دخول المدير", add: "إضافة سيكل", close: "إغلاق", bike: "سيكل", select: "اختر السيكل", timePrompt: "كم دقيقة؟" },
-        en: { title: "BikePro - Monitor", login: "Admin Login", add: "Add Bike", close: "Close", bike: "Bike", select: "Select Bike", timePrompt: "How many minutes?" }
+        ar: { title: "بي برو - مراقب", login: "دخول المدير", bike: "سيكل", select: "اختر السيكل", timePrompt: "كم دقيقة؟", search: "ابحث عن رقم سيكل..." },
+        en: { title: "BikePro - Monitor", login: "Admin Login", bike: "Bike", select: "Select Bike", timePrompt: "Minutes?", search: "Search bike number..." }
     };
 
     function toggleLang() {
         currentLang = currentLang === 'ar' ? 'en' : 'ar';
         document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+        document.getElementById('searchInput').placeholder = text[currentLang].search;
         updateUI();
     }
 
     function updateUI() {
         document.getElementById('title').innerText = text[currentLang].title;
         document.getElementById('adminLoginBtn').innerText = text[currentLang].login;
-        document.getElementById('modalTitle').innerText = text[currentLang].select;
     }
 
     function checkAdmin() {
@@ -95,58 +101,64 @@
         }
     }
 
-    // إنشاء قائمة الـ 30 سيكل مثل صورتك
+    // توليد قائمة 200 سيكل
     function openBikeList() {
         const grid = document.getElementById('bikeGrid');
         grid.innerHTML = '';
-        for(let i=1; i<=30; i++) {
+        const fragment = document.createDocumentFragment();
+        for(let i=1; i<=200; i++) {
             const item = document.createElement('div');
             item.className = 'grid-item';
             item.innerText = i;
             item.onclick = () => addBike(i);
-            grid.appendChild(item);
+            fragment.appendChild(item);
         }
+        grid.appendChild(fragment);
         document.getElementById('bikeModal').style.display = 'flex';
     }
 
     function addBike(id) {
         let mins = prompt(text[currentLang].timePrompt, "30");
         if(mins) {
-            db.ref('rentals').push({
-                id: id,
-                end: Date.now() + (parseInt(mins) * 60000)
-            });
+            db.ref('rentals').push({ id: id, end: Date.now() + (parseInt(mins) * 60000) });
             closeModal();
         }
     }
 
     db.ref('rentals').on('value', (snapshot) => {
-        const data = snapshot.val();
-        const area = document.getElementById('activeRentals');
-        area.innerHTML = '';
-        if(!data) return;
-
-        Object.keys(data).forEach(key => {
-            const r = data[key];
-            let diff = r.end - Date.now();
-            if(diff < 0) diff = 0;
-
-            const box = document.createElement('div');
-            box.className = `bike-box ${diff <= 0 ? 'state-expired' : ''}`;
-            box.innerHTML = `
-                <div style="font-size:0.7rem">${text[currentLang].bike}</div>
-                <div style="font-weight:900; font-size:1.2rem;">${r.id}</div>
-                <div style="color:var(--secondary); font-weight:bold;">${Math.ceil(diff/60000)}m</div>
-            `;
-            
-            if(isAdmin) {
-                box.onclick = () => { if(confirm("Delete?")) db.ref('rentals/'+key).remove(); };
-            }
-            area.appendChild(box);
-        });
+        allBikes = snapshot.val() || {};
+        renderBikes();
     });
 
+    function renderBikes() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const area = document.getElementById('activeRentals');
+        area.innerHTML = '';
+
+        Object.keys(allBikes).forEach(key => {
+            const r = allBikes[key];
+            if (r.id.toString().toLowerCase().includes(query)) {
+                let diff = r.end - Date.now();
+                if(diff < 0) diff = 0;
+
+                const box = document.createElement('div');
+                box.className = `bike-box ${diff <= 0 ? 'state-expired' : ''}`;
+                box.innerHTML = `
+                    <div style="font-size:0.6rem">${text[currentLang].bike}</div>
+                    <div style="font-weight:900; font-size:1.1rem;">${r.id}</div>
+                    <div style="color:var(--secondary); font-weight:bold; font-size:0.9rem;">${Math.ceil(diff/60000)}m</div>
+                `;
+                
+                if(isAdmin) {
+                    box.onclick = () => { if(confirm("حذف / Delete?")) db.ref('rentals/'+key).remove(); };
+                }
+                area.appendChild(box);
+            }
+        });
+    }
+
     function closeModal() { document.getElementById('bikeModal').style.display = 'none'; }
+    setInterval(renderBikes, 20000); 
 </script>
 </body>
 </html>
