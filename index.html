@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BikePro - Multi-Lang</title>
+    <title>BikePro - Multi Select</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
@@ -19,22 +19,27 @@
         
         .lang-btn { position: absolute; top: 15px; left: 15px; width: auto; padding: 5px 10px; font-size: 0.7rem; background: var(--dark); color: white; border-radius: 8px; z-index: 10000; }
 
-        #adminArea { margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; }
-        .pass-input { width: 60%; padding: 8px; border-radius: 8px; border: 1px solid #ddd; text-align: center; font-size: 0.9rem; }
-
         .search-container { margin-bottom: 15px; }
         .search-input { width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #ddd; font-size: 1rem; text-align: center; outline: none; }
 
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center; }
-        .modal-content { background: white; border-radius: 25px; width: 90%; max-width: 400px; max-height: 85vh; overflow: hidden; display: flex; flex-direction: column; }
+        .modal-content { background: white; border-radius: 25px; width: 95%; max-width: 450px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
         .modal-header { padding: 15px; background: white; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .modal-body { padding: 15px; overflow-y: auto; flex-grow: 1; }
 
         .grid-select { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-        .grid-item { background: #f0f0f0; padding: 15px 2px; border-radius: 8px; font-weight: bold; border: 1px solid #ddd; }
+        .grid-item { background: #f0f0f0; padding: 15px 2px; border-radius: 8px; font-weight: bold; border: 1px solid #ddd; cursor: pointer; }
+        
+        /* شكل السيكل المحدد (أزرق) */
+        .grid-item.selected { background: var(--secondary); color: white; border-color: #000; transform: scale(0.95); }
+        .grid-item.disabled { background: #eee; color: #bbb; cursor: not-allowed; opacity: 0.4; }
+
+        .modal-footer { padding: 15px; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 10px; }
 
         #activeRentals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
         .bike-box { background: white; border-radius: 12px; padding: 12px 2px; border-bottom: 4px solid var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .state-expired { border-bottom-color: var(--danger); animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
@@ -43,15 +48,13 @@
 
 <div class="header">
     <h2 id="txt-title">بي برو - سحابي</h2>
-    
     <div id="adminArea">
         <div id="loginSection">
-            <input type="password" id="passCode" class="pass-input" placeholder="كلمة السر">
+            <input type="password" id="passCode" placeholder="كلمة السر" style="width:60%; padding:8px; border-radius:8px; border:1px solid #ddd; text-align:center;">
             <button onclick="checkAdmin()" id="txt-login-btn" style="padding: 8px 15px; border-radius: 8px; background: var(--dark); color: white; border: none;">دخول</button>
         </div>
-        
         <div id="adminTools" style="display:none; flex-direction: column; gap: 5px;">
-            <button class="btn btn-primary" id="txt-list-btn" onclick="openBikeList()">➕ إضافة من القائمة (1-200)</button>
+            <button class="btn btn-primary" id="txt-list-btn" onclick="openBikeList()">➕ قائمة السياكل (تحديد متعدد)</button>
             <button class="btn btn-dark" id="txt-manual-btn" onclick="addManual()">⌨️ إضافة يدوية</button>
             <button onclick="location.reload()" id="txt-logout" style="font-size: 0.7rem; background: none; border: none; color: gray;">تسجيل خروج</button>
         </div>
@@ -64,11 +67,25 @@
 
 <div id="activeRentals"></div>
 
-<div id="bikeModal" class="modal"><div class="modal-content"><div class="modal-header"><h3 id="txt-modal-list">اختر السيكل</h3><button onclick="closeModals()" class="btn-danger">X</button></div><div class="modal-body"><div class="grid-select" id="bikeGrid"></div></div></div></div>
+<div id="bikeModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="txt-modal-list">اختر السياكل</h3>
+            <button onclick="closeModals()" class="btn-danger" style="padding:5px 10px; border-radius:8px; border:none; color:white;">X</button>
+        </div>
+        <div class="modal-body">
+            <div class="grid-select" id="bikeGrid"></div>
+        </div>
+        <div class="modal-footer">
+            <div style="display:flex; gap:10px;">
+                <button onclick="startMultiSelect(30)" id="txt-start-30" class="btn btn-primary" style="flex:1; background:var(--primary);">بدأ (30د)</button>
+                <button onclick="startMultiSelect(60)" id="txt-start-60" class="btn btn-primary" style="flex:1;">بدأ (60د)</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-<div id="timeModal" class="modal"><div class="modal-content" style="padding: 20px;"><h3 id="txt-time-title">اختر مدة الإيجار</h3><div style="display:flex; gap:10px;"><button onclick="confirmAdd(30)" style="flex:1; padding:20px; background:var(--primary); color:white; border-radius:15px; border:none; font-weight:bold;">30</button><button onclick="confirmAdd(60)" style="flex:1; padding:20px; background:var(--secondary); color:white; border-radius:15px; border:none; font-weight:bold;">60</button></div><button class="btn btn-dark" id="txt-cancel-1" onclick="closeModals()">إلغاء</button></div></div>
-
-<div id="editModal" class="modal"><div class="modal-content" style="padding:20px;"><h3 id="txt-edit-title">تعديل البيانات</h3><input type="hidden" id="editKey"><input type="text" id="editId" style="width:100%; padding:10px; margin:5px 0;"><input type="number" id="editTime" style="width:100%; padding:10px; margin:5px 0;"><button class="btn btn-primary" id="txt-save" onclick="saveEdit()">حفظ</button><button class="btn btn-danger" id="txt-delete" onclick="deleteBike()">حذف</button><button class="btn btn-dark" id="txt-cancel-2" onclick="closeModals()">إلغاء</button></div></div>
+<div id="editModal" class="modal"><div class="modal-content" style="padding:20px;"><h3 id="txt-edit-title">تعديل البيانات</h3><input type="hidden" id="editKey"><input type="text" id="editId" style="width:100%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #ddd;"><input type="number" id="editTime" style="width:100%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #ddd;" placeholder="إضافة وقت"><button class="btn btn-primary" id="txt-save" onclick="saveEdit()">حفظ</button><button class="btn btn-danger" id="txt-delete" onclick="deleteBike()">حذف</button><button class="btn btn-dark" id="txt-cancel" onclick="closeModals()">إلغاء</button></div></div>
 
 <script>
     const firebaseConfig = {
@@ -87,46 +104,12 @@
     
     let isAdmin = false;
     let currentLang = 'ar';
-    let selectedBikeId = null;
+    let selectedBikes = []; 
     let allBikes = {};
 
     const languages = {
-        ar: {
-            title: "بي برو - سحابي",
-            loginBtn: "دخول",
-            passPlace: "كلمة السر",
-            listBtn: "➕ إضافة من القائمة (1-200)",
-            manualBtn: "⌨️ إضافة يدوية",
-            logout: "تسجيل خروج",
-            searchPlace: "ابحث عن سيكل...",
-            modalList: "اختر السيكل",
-            timeTitle: "اختر مدة الإيجار",
-            cancel: "إلغاء",
-            editTitle: "تعديل البيانات",
-            save: "حفظ",
-            delete: "حذف نهائي",
-            bikeTxt: "سيكل",
-            alertPass: "خطأ في كلمة السر",
-            promptManual: "أدخل رقم أو اسم السيكل:"
-        },
-        en: {
-            title: "BikePro - Cloud",
-            loginBtn: "Login",
-            passPlace: "Password",
-            listBtn: "➕ Add from List (1-200)",
-            manualBtn: "⌨️ Manual Add",
-            logout: "Logout",
-            searchPlace: "Search bike...",
-            modalList: "Select Bike",
-            timeTitle: "Select Duration",
-            cancel: "Cancel",
-            editTitle: "Edit Details",
-            save: "Save",
-            delete: "Delete",
-            bikeTxt: "Bike",
-            alertPass: "Wrong Password",
-            promptManual: "Enter Bike Number/Name:"
-        }
+        ar: { title: "بي برو - سحابي", loginBtn: "دخول", listBtn: "➕ قائمة السياكل (تحديد متعدد)", manualBtn: "⌨️ إضافة يدوية", logout: "تسجيل خروج", searchPlace: "ابحث عن سيكل...", modalList: "اختر السياكل", cancel: "إلغاء", editTitle: "تعديل البيانات", save: "حفظ", delete: "إزالة", bikeTxt: "سيكل", activeAlert: "محجوز حالياً!", start30: "بدأ (30د)", start60: "بدأ (60د)" },
+        en: { title: "BikePro - Cloud", loginBtn: "Login", listBtn: "➕ Bike List (Multi-Select)", manualBtn: "⌨️ Manual Add", logout: "Logout", searchPlace: "Search bike...", modalList: "Select Bikes", cancel: "Cancel", editTitle: "Edit Details", save: "Save", delete: "Remove", bikeTxt: "Bike", activeAlert: "Active!", start30: "Start (30m)", start60: "Start (60m)" }
     };
 
     function toggleLang() {
@@ -139,18 +122,17 @@
         const l = languages[currentLang];
         document.getElementById('txt-title').innerText = l.title;
         document.getElementById('txt-login-btn').innerText = l.loginBtn;
-        document.getElementById('passCode').placeholder = l.passPlace;
         document.getElementById('txt-list-btn').innerText = l.listBtn;
         document.getElementById('txt-manual-btn').innerText = l.manualBtn;
         document.getElementById('txt-logout').innerText = l.logout;
         document.getElementById('searchInput').placeholder = l.searchPlace;
         document.getElementById('txt-modal-list').innerText = l.modalList;
-        document.getElementById('txt-time-title').innerText = l.timeTitle;
-        document.getElementById('txt-cancel-1').innerText = l.cancel;
-        document.getElementById('txt-cancel-2').innerText = l.cancel;
         document.getElementById('txt-edit-title').innerText = l.editTitle;
         document.getElementById('txt-save').innerText = l.save;
         document.getElementById('txt-delete').innerText = l.delete;
+        document.getElementById('txt-cancel').innerText = l.cancel;
+        document.getElementById('txt-start-30').innerText = l.start30;
+        document.getElementById('txt-start-60').innerText = l.start60;
         renderBikes();
     }
 
@@ -160,37 +142,58 @@
             document.getElementById('loginSection').style.display = 'none';
             document.getElementById('adminTools').style.display = 'flex';
             renderBikes();
-        } else {
-            alert(languages[currentLang].alertPass);
         }
     }
 
     function openBikeList() {
+        selectedBikes = []; // تصفير التحديد عند فتح القائمة
         const grid = document.getElementById('bikeGrid');
         grid.innerHTML = '';
+        const activeIds = Object.values(allBikes).map(b => b.id.toString());
+
         for(let i=1; i<=200; i++) {
             const item = document.createElement('div');
-            item.className = 'grid-item';
+            item.className = activeIds.includes(i.toString()) ? 'grid-item disabled' : 'grid-item';
             item.innerText = i;
-            item.onclick = () => { selectedBikeId = i; showTimeOptions(); };
+            
+            if (!activeIds.includes(i.toString())) {
+                item.onclick = function() {
+                    if (this.classList.contains('selected')) {
+                        this.classList.remove('selected');
+                        selectedBikes = selectedBikes.filter(id => id !== i);
+                    } else {
+                        this.classList.add('selected');
+                        selectedBikes.push(i);
+                    }
+                };
+            } else {
+                item.onclick = () => alert(languages[currentLang].activeAlert);
+            }
             grid.appendChild(item);
         }
         document.getElementById('bikeModal').style.display = 'flex';
     }
 
-    function addManual() {
-        let id = prompt(languages[currentLang].promptManual);
-        if(id) { selectedBikeId = id; showTimeOptions(); }
-    }
-
-    function showTimeOptions() {
-        document.getElementById('bikeModal').style.display = 'none';
-        document.getElementById('timeModal').style.display = 'flex';
-    }
-
-    function confirmAdd(mins) {
-        db.ref('rentals').push({ id: selectedBikeId, end: Date.now() + (mins * 60000) });
+    function startMultiSelect(mins) {
+        if (selectedBikes.length === 0) return alert(currentLang === 'ar' ? "يرجى تحديد سيكل واحد على الأقل" : "Select at least one bike");
+        
+        selectedBikes.forEach(id => {
+            db.ref('rentals').push({ id: id, end: Date.now() + (mins * 60000) });
+        });
+        
         closeModals();
+    }
+
+    function addManual() {
+        let id = prompt(currentLang === 'ar' ? "رقم السيكل:" : "Bike No:");
+        if(id) {
+            const activeIds = Object.values(allBikes).map(b => b.id.toString());
+            if(activeIds.includes(id.toString())) return alert(languages[currentLang].activeAlert);
+            selectedBikes = [id];
+            // للإضافة اليدوية نفتح خيار الوقت فوراً
+            let mins = confirm(currentLang === 'ar' ? "تأكيد إضافة 30 دقيقة؟ (إلغاء لـ 60 دقيقة)" : "Add 30m? (Cancel for 60m)") ? 30 : 60;
+            startMultiSelect(mins);
+        }
     }
 
     db.ref('rentals').on('value', (snapshot) => {
@@ -208,15 +211,15 @@
                 let diff = r.end - Date.now();
                 const box = document.createElement('div');
                 box.className = `bike-box ${diff <= 0 ? 'state-expired' : ''}`;
-                box.innerHTML = `<div style="font-size:0.6rem">${languages[currentLang].bikeTxt}</div><div style="font-weight:900;">${r.id}</div><div>${Math.ceil(diff/60000)}m</div>`;
-                box.onclick = () => {
-                    if(isAdmin) {
+                let timeTxt = diff <= 0 ? (currentLang === 'ar' ? "انتهى" : "Done") : Math.ceil(diff/60000) + "m";
+                box.innerHTML = `<div style="font-size:0.6rem">${languages[currentLang].bikeTxt}</div><div style="font-weight:900;">${r.id}</div><div style="font-size:0.8rem; color:var(--secondary)">${timeTxt}</div>`;
+                if(isAdmin) {
+                    box.onclick = () => {
                         document.getElementById('editKey').value = key;
                         document.getElementById('editId').value = r.id;
-                        document.getElementById('editTime').value = "";
                         document.getElementById('editModal').style.display = 'flex';
-                    }
-                };
+                    };
+                }
                 area.appendChild(box);
             }
         });
