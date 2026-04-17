@@ -3,58 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>بي برو - الإدارة الاحترافية</title>
+    <title>BikePro Cloud</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
-    
     <style>
-        :root { --primary: #00b894; --secondary: #0984e3; --danger: #d63031; --dark: #2d3436; --light: #f1f2f6; --warning: #f1c40f; }
-        * { box-sizing: border-box; font-family: system-ui, sans-serif; }
-        body { background: var(--light); padding: 10px; margin: 0; text-align: center; }
-        .header { background: white; padding: 15px; border-radius: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 15px; }
-        .admin-only { display: none; background: #dfe6e9; padding: 15px; border-radius: 15px; margin-bottom: 15px; border: 2px dashed var(--secondary); }
-        .btn { padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; border: none; cursor: pointer; margin: 5px 0; }
+        :root { --primary: #00b894; --secondary: #0984e3; --dark: #2d3436; --light: #f1f2f6; --danger: #d63031; }
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: var(--light); margin: 0; padding: 10px; text-align: center; }
+        
+        /* الهيدر والأزرار */
+        .header { background: white; padding: 15px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        .btn { padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; border: none; cursor: pointer; transition: 0.2s; }
         .btn-primary { background: var(--secondary); color: white; }
-        .btn-warning { background: var(--warning); color: var(--dark); }
-        .btn-danger { background: var(--danger); color: white; }
-        #activeRentals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-        .bike-box { background: white; border-radius: 12px; padding: 15px 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-bottom: 5px solid var(--primary); }
+        .lang-btn { position: absolute; top: 20px; left: 20px; width: auto; padding: 5px 10px; font-size: 0.8rem; background: var(--dark); color: white; }
+
+        /* قائمة اختيار السياكل (مثل الصورة) */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 25px; width: 90%; max-width: 400px; }
+        .grid-select { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 15px 0; }
+        .grid-item { background: #eee; padding: 10px 5px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .grid-item:active { background: var(--primary); color: white; }
+
+        /* عرض السياكل النشطة */
+        #activeRentals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .bike-box { background: white; border-radius: 15px; padding: 15px 5px; border-bottom: 5px solid var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .state-expired { border-bottom-color: var(--danger); animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0.5; } }
-        /* تصميم نافذة التعديل */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
-        .modal-content { background: white; padding: 20px; border-radius: 20px; width: 90%; max-width: 400px; }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <h2 style="margin:0;">بي برو <span id="userRole" style="font-size:0.8rem; color:var(--secondary);">(مراقب)</span></h2>
-    <button id="loginBtn" class="btn btn-primary" style="width:auto; padding:5px 20px;" onclick="checkAdmin()">دخول المدير</button>
-</div>
+<button class="btn lang-btn" onclick="toggleLang()">EN/AR</button>
 
-<div class="admin-only" id="adminTools">
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-        <button class="btn btn-primary" onclick="showManual()">➕ إضافة يدوي</button>
-        <button class="btn btn-danger" onclick="clearAll()">🗑️ مسح الكل</button>
+<div class="header">
+    <h2 id="title">بي برو - سحابي</h2>
+    <button id="adminLoginBtn" class="btn btn-primary" style="width:auto; padding:5px 20px;" onclick="checkAdmin()">دخول المدير</button>
+    <div id="adminTools" style="display:none; margin-top:10px;">
+        <button class="btn btn-primary" onclick="openBikeList()">➕ إضافة سيكل (قائمة)</button>
     </div>
 </div>
 
 <div id="activeRentals"></div>
 
-<div id="editModal" class="modal">
+<div id="bikeModal" class="modal">
     <div class="modal-content">
-        <h3>تعديل السيكل</h3>
-        <input type="hidden" id="editKey">
-        <label>رقم/اسم السيكل:</label>
-        <input type="text" id="editId" class="btn" style="border:1px solid #ccc; background:white; color:black;">
-        <label>إضافة/إنقاص دقائق (مثال: 10 أو -10):</label>
-        <input type="number" id="editTime" class="btn" style="border:1px solid #ccc; background:white; color:black;">
-        <div style="display:flex; gap:10px;">
-            <button class="btn btn-primary" onclick="saveEdit()">حفظ</button>
-            <button class="btn btn-danger" onclick="deleteBike()">حذف السيكل</button>
-        </div>
-        <button class="btn" style="background:#ccc" onclick="closeModal()">إلغاء</button>
+        <h3 id="modalTitle">اختر السيكل</h3>
+        <div class="grid-select" id="bikeGrid"></div>
+        <button class="btn" style="background:#636e72; color:white;" onclick="closeModal()">إغلاق</button>
     </div>
 </div>
 
@@ -73,13 +68,55 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     let isAdmin = false;
+    let currentLang = 'ar';
+
+    const text = {
+        ar: { title: "بي برو - مراقب", login: "دخول المدير", add: "إضافة سيكل", close: "إغلاق", bike: "سيكل", select: "اختر السيكل", timePrompt: "كم دقيقة؟" },
+        en: { title: "BikePro - Monitor", login: "Admin Login", add: "Add Bike", close: "Close", bike: "Bike", select: "Select Bike", timePrompt: "How many minutes?" }
+    };
+
+    function toggleLang() {
+        currentLang = currentLang === 'ar' ? 'en' : 'ar';
+        document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+        updateUI();
+    }
+
+    function updateUI() {
+        document.getElementById('title').innerText = text[currentLang].title;
+        document.getElementById('adminLoginBtn').innerText = text[currentLang].login;
+        document.getElementById('modalTitle').innerText = text[currentLang].select;
+    }
 
     function checkAdmin() {
-        if(prompt("كلمة السر:") === "1234") {
+        if(prompt("Password:") === "1234") {
             isAdmin = true;
             document.getElementById('adminTools').style.display = 'block';
-            document.getElementById('userRole').innerText = "(المدير)";
-            document.getElementById('loginBtn').style.display = 'none';
+            document.getElementById('adminLoginBtn').style.display = 'none';
+        }
+    }
+
+    // إنشاء قائمة الـ 30 سيكل مثل صورتك
+    function openBikeList() {
+        const grid = document.getElementById('bikeGrid');
+        grid.innerHTML = '';
+        for(let i=1; i<=30; i++) {
+            const item = document.createElement('div');
+            item.className = 'grid-item';
+            item.innerText = i;
+            item.onclick = () => addBike(i);
+            grid.appendChild(item);
+        }
+        document.getElementById('bikeModal').style.display = 'flex';
+    }
+
+    function addBike(id) {
+        let mins = prompt(text[currentLang].timePrompt, "30");
+        if(mins) {
+            db.ref('rentals').push({
+                id: id,
+                end: Date.now() + (parseInt(mins) * 60000)
+            });
+            closeModal();
         }
     }
 
@@ -96,54 +133,20 @@
 
             const box = document.createElement('div');
             box.className = `bike-box ${diff <= 0 ? 'state-expired' : ''}`;
-            box.innerHTML = `<div style="font-size:0.7rem">سيكل</div><div style="font-weight:900">${r.id}</div><div style="font-size:1.1rem">${Math.ceil(diff/60000)}m</div>`;
+            box.innerHTML = `
+                <div style="font-size:0.7rem">${text[currentLang].bike}</div>
+                <div style="font-weight:900; font-size:1.2rem;">${r.id}</div>
+                <div style="color:var(--secondary); font-weight:bold;">${Math.ceil(diff/60000)}m</div>
+            `;
             
             if(isAdmin) {
-                box.onclick = () => openEditModal(key, r.id, r.end);
+                box.onclick = () => { if(confirm("Delete?")) db.ref('rentals/'+key).remove(); };
             }
             area.appendChild(box);
         });
     });
 
-    function showManual() {
-        let id = prompt("رقم السيكل:");
-        let mins = prompt("الدقائق:");
-        if(id && mins) {
-            db.ref('rentals').push({ id: id, end: Date.now() + (parseInt(mins) * 60000) });
-        }
-    }
-
-    function openEditModal(key, id, currentEnd) {
-        document.getElementById('editKey').value = key;
-        document.getElementById('editId').value = id;
-        document.getElementById('editTime').value = "";
-        document.getElementById('editModal').style.display = 'flex';
-    }
-
-    function saveEdit() {
-        const key = document.getElementById('editKey').value;
-        const newId = document.getElementById('editId').value;
-        const addMins = parseInt(document.getElementById('editTime').value) || 0;
-        
-        db.ref('rentals/'+key).once('value', (snap) => {
-            const oldEnd = snap.val().end;
-            db.ref('rentals/'+key).update({
-                id: newId,
-                end: oldEnd + (addMins * 60000)
-            });
-        });
-        closeModal();
-    }
-
-    function deleteBike() {
-        if(confirm("حذف هذا السيكل نهائياً؟")) {
-            db.ref('rentals/'+document.getElementById('editKey').value).remove();
-            closeModal();
-        }
-    }
-
-    function clearAll() { if(confirm("مسح الكل؟")) db.ref('rentals').remove(); }
-    function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+    function closeModal() { document.getElementById('bikeModal').style.display = 'none'; }
 </script>
 </body>
 </html>
