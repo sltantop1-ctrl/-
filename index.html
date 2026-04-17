@@ -3,42 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>بي برو - سحابي</title>
+    <title>بي برو - الإدارة الاحترافية</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     
     <style>
-        :root { --primary: #00b894; --secondary: #0984e3; --danger: #d63031; --dark: #2d3436; --light: #f1f2f6; }
+        :root { --primary: #00b894; --secondary: #0984e3; --danger: #d63031; --dark: #2d3436; --light: #f1f2f6; --warning: #f1c40f; }
         * { box-sizing: border-box; font-family: system-ui, sans-serif; }
         body { background: var(--light); padding: 10px; margin: 0; text-align: center; }
-        .admin-only { display: none; margin-bottom: 15px; }
-        .header { margin-bottom: 15px; background: white; padding: 10px; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .btn { padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; border: none; cursor: pointer; }
+        .header { background: white; padding: 15px; border-radius: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .admin-only { display: none; background: #dfe6e9; padding: 15px; border-radius: 15px; margin-bottom: 15px; border: 2px dashed var(--secondary); }
+        .btn { padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; border: none; cursor: pointer; margin: 5px 0; }
         .btn-primary { background: var(--secondary); color: white; }
-        .btn-dark { background: var(--dark); color: white; }
-        #activeRentals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-        .bike-box { background: white; border-radius: 8px; padding: 10px 2px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-bottom: 4px solid var(--primary); }
+        .btn-warning { background: var(--warning); color: var(--dark); }
+        .btn-danger { background: var(--danger); color: white; }
+        #activeRentals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .bike-box { background: white; border-radius: 12px; padding: 15px 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-bottom: 5px solid var(--primary); }
         .state-expired { border-bottom-color: var(--danger); animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0.5; } }
+        /* تصميم نافذة التعديل */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 20px; width: 90%; max-width: 400px; }
     </style>
 </head>
 <body>
 
 <div class="header">
-    <h2 style="margin:0;">بي برو - <span id="userRole">مراقب</span></h2>
-    <button class="btn btn-dark" style="width:auto; padding:5px 15px; margin-top:5px; font-size:0.7rem;" onclick="checkAdmin()">دخول المدير</button>
+    <h2 style="margin:0;">بي برو <span id="userRole" style="font-size:0.8rem; color:var(--secondary);">(مراقب)</span></h2>
+    <button id="loginBtn" class="btn btn-primary" style="width:auto; padding:5px 20px;" onclick="checkAdmin()">دخول المدير</button>
 </div>
 
 <div class="admin-only" id="adminTools">
-    <div style="display:flex; gap:10px;">
-        <button class="btn btn-primary" onclick="showManual()">إضافة سيكل (يدوي)</button>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <button class="btn btn-primary" onclick="showManual()">➕ إضافة يدوي</button>
+        <button class="btn btn-danger" onclick="clearAll()">🗑️ مسح الكل</button>
     </div>
 </div>
 
 <div id="activeRentals"></div>
 
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <h3>تعديل السيكل</h3>
+        <input type="hidden" id="editKey">
+        <label>رقم/اسم السيكل:</label>
+        <input type="text" id="editId" class="btn" style="border:1px solid #ccc; background:white; color:black;">
+        <label>إضافة/إنقاص دقائق (مثال: 10 أو -10):</label>
+        <input type="number" id="editTime" class="btn" style="border:1px solid #ccc; background:white; color:black;">
+        <div style="display:flex; gap:10px;">
+            <button class="btn btn-primary" onclick="saveEdit()">حفظ</button>
+            <button class="btn btn-danger" onclick="deleteBike()">حذف السيكل</button>
+        </div>
+        <button class="btn" style="background:#ccc" onclick="closeModal()">إلغاء</button>
+    </div>
+</div>
+
 <script>
-    // بياناتك الخاصة التي أرسلتها مع إضافة رابط القاعدة
     const firebaseConfig = {
         apiKey: "AIzaSyARmaRrsN2WRdpeXtQScQnu9MYFS8vqVXU",
         authDomain: "bikepro-969da.firebaseapp.com",
@@ -50,23 +70,19 @@
         databaseURL: "https://bikepro-969da-default-rtdb.firebaseio.com"
     };
 
-    // تشغيل Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     let isAdmin = false;
 
-    // نظام دخول المدير
     function checkAdmin() {
-        let p = prompt("أدخل كلمة سر المدير:");
-        if(p === "1234") { // يمكنك تغيير كلمة السر هنا
+        if(prompt("كلمة السر:") === "1234") {
             isAdmin = true;
             document.getElementById('adminTools').style.display = 'block';
-            document.getElementById('userRole').innerText = "المدير";
-            alert("مرحباً بك يا مدير");
+            document.getElementById('userRole').innerText = "(المدير)";
+            document.getElementById('loginBtn').style.display = 'none';
         }
     }
 
-    // جلب البيانات من السحابة وعرضها فوراً
     db.ref('rentals').on('value', (snapshot) => {
         const data = snapshot.val();
         const area = document.getElementById('activeRentals');
@@ -80,30 +96,54 @@
 
             const box = document.createElement('div');
             box.className = `bike-box ${diff <= 0 ? 'state-expired' : ''}`;
-            box.innerHTML = `<div>${r.id}</div><div style="font-weight:bold">${Math.ceil(diff/60000)}m</div>`;
+            box.innerHTML = `<div style="font-size:0.7rem">سيكل</div><div style="font-weight:900">${r.id}</div><div style="font-size:1.1rem">${Math.ceil(diff/60000)}m</div>`;
             
-            // المدير فقط يمكنه الحذف عند الضغط على السيكل
             if(isAdmin) {
-                box.onclick = () => { if(confirm("حذف السيكل؟")) db.ref('rentals/'+key).remove(); };
+                box.onclick = () => openEditModal(key, r.id, r.end);
             }
             area.appendChild(box);
         });
     });
 
-    // إضافة سيكل للسحابة (للمدير فقط)
     function showManual() {
         let id = prompt("رقم السيكل:");
-        let mins = prompt("عدد الدقائق:");
+        let mins = prompt("الدقائق:");
         if(id && mins) {
-            db.ref('rentals').push({
-                id: id,
-                end: Date.now() + (parseInt(mins) * 60000)
-            });
+            db.ref('rentals').push({ id: id, end: Date.now() + (parseInt(mins) * 60000) });
         }
     }
 
-    // تحديث الشاشة كل دقيقة لضمان دقة الوقت
-    setInterval(() => {}, 60000);
+    function openEditModal(key, id, currentEnd) {
+        document.getElementById('editKey').value = key;
+        document.getElementById('editId').value = id;
+        document.getElementById('editTime').value = "";
+        document.getElementById('editModal').style.display = 'flex';
+    }
+
+    function saveEdit() {
+        const key = document.getElementById('editKey').value;
+        const newId = document.getElementById('editId').value;
+        const addMins = parseInt(document.getElementById('editTime').value) || 0;
+        
+        db.ref('rentals/'+key).once('value', (snap) => {
+            const oldEnd = snap.val().end;
+            db.ref('rentals/'+key).update({
+                id: newId,
+                end: oldEnd + (addMins * 60000)
+            });
+        });
+        closeModal();
+    }
+
+    function deleteBike() {
+        if(confirm("حذف هذا السيكل نهائياً؟")) {
+            db.ref('rentals/'+document.getElementById('editKey').value).remove();
+            closeModal();
+        }
+    }
+
+    function clearAll() { if(confirm("مسح الكل؟")) db.ref('rentals').remove(); }
+    function closeModal() { document.getElementById('editModal').style.display = 'none'; }
 </script>
 </body>
 </html>
