@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BikePro - APK Ready</title>
+    <title>BikePro - Multi-Lang</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
@@ -17,7 +17,8 @@
         .btn-dark { background: var(--dark); color: white; }
         .btn-danger { background: var(--danger); color: white; }
         
-        /* تحسين شكل خانة الدخول */
+        .lang-btn { position: absolute; top: 15px; left: 15px; width: auto; padding: 5px 10px; font-size: 0.7rem; background: var(--dark); color: white; border-radius: 8px; z-index: 10000; }
+
         #adminArea { margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; }
         .pass-input { width: 60%; padding: 8px; border-radius: 8px; border: 1px solid #ddd; text-align: center; font-size: 0.9rem; }
 
@@ -34,25 +35,25 @@
 
         #activeRentals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
         .bike-box { background: white; border-radius: 12px; padding: 12px 2px; border-bottom: 4px solid var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .state-expired { border-bottom-color: var(--danger); animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
 
+<button class="btn lang-btn" onclick="toggleLang()">EN / عربي</button>
+
 <div class="header">
-    <h2 id="title">بي برو - سحابي</h2>
+    <h2 id="txt-title">بي برو - سحابي</h2>
     
     <div id="adminArea">
         <div id="loginSection">
             <input type="password" id="passCode" class="pass-input" placeholder="كلمة السر">
-            <button onclick="checkAdmin()" style="padding: 8px 15px; border-radius: 8px; background: var(--dark); color: white; border: none;">دخول</button>
+            <button onclick="checkAdmin()" id="txt-login-btn" style="padding: 8px 15px; border-radius: 8px; background: var(--dark); color: white; border: none;">دخول</button>
         </div>
         
         <div id="adminTools" style="display:none; flex-direction: column; gap: 5px;">
-            <button class="btn btn-primary" onclick="openBikeList()">➕ إضافة من القائمة (1-200)</button>
-            <button class="btn btn-dark" onclick="addManual()">⌨️ إضافة يدوية</button>
-            <button onclick="location.reload()" style="font-size: 0.7rem; background: none; border: none; color: gray;">تسجيل خروج</button>
+            <button class="btn btn-primary" id="txt-list-btn" onclick="openBikeList()">➕ إضافة من القائمة (1-200)</button>
+            <button class="btn btn-dark" id="txt-manual-btn" onclick="addManual()">⌨️ إضافة يدوية</button>
+            <button onclick="location.reload()" id="txt-logout" style="font-size: 0.7rem; background: none; border: none; color: gray;">تسجيل خروج</button>
         </div>
     </div>
 </div>
@@ -63,9 +64,11 @@
 
 <div id="activeRentals"></div>
 
-<div id="bikeModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>اختر السيكل</h3><button onclick="closeModals()" class="btn-danger">X</button></div><div class="modal-body"><div class="grid-select" id="bikeGrid"></div></div></div></div>
-<div id="timeModal" class="modal"><div class="modal-content" style="padding: 20px;"><h3>سيكل رقم: <span id="targetBikeId"></span></h3><div style="display:flex; gap:10px;"><button onclick="confirmAdd(30)" style="flex:1; padding:20px; background:var(--primary); color:white; border-radius:15px; border:none; font-weight:bold;">30د</button><button onclick="confirmAdd(60)" style="flex:1; padding:20px; background:var(--secondary); color:white; border-radius:15px; border:none; font-weight:bold;">60د</button></div><button class="btn btn-dark" onclick="closeModals()">إلغاء</button></div></div>
-<div id="editModal" class="modal"><div class="modal-content" style="padding:20px;"><h3>تعديل <span id="displayEditId"></span></h3><input type="hidden" id="editKey"><input type="text" id="editId" placeholder="الرقم" style="width:100%; padding:10px; margin:5px 0;"><input type="number" id="editTime" placeholder="إضافة وقت" style="width:100%; padding:10px; margin:5px 0;"><button class="btn btn-primary" onclick="saveEdit()">حفظ</button><button class="btn btn-danger" onclick="deleteBike()">حذف</button><button class="btn btn-dark" onclick="closeModals()">إلغاء</button></div></div>
+<div id="bikeModal" class="modal"><div class="modal-content"><div class="modal-header"><h3 id="txt-modal-list">اختر السيكل</h3><button onclick="closeModals()" class="btn-danger">X</button></div><div class="modal-body"><div class="grid-select" id="bikeGrid"></div></div></div></div>
+
+<div id="timeModal" class="modal"><div class="modal-content" style="padding: 20px;"><h3 id="txt-time-title">اختر مدة الإيجار</h3><div style="display:flex; gap:10px;"><button onclick="confirmAdd(30)" style="flex:1; padding:20px; background:var(--primary); color:white; border-radius:15px; border:none; font-weight:bold;">30</button><button onclick="confirmAdd(60)" style="flex:1; padding:20px; background:var(--secondary); color:white; border-radius:15px; border:none; font-weight:bold;">60</button></div><button class="btn btn-dark" id="txt-cancel-1" onclick="closeModals()">إلغاء</button></div></div>
+
+<div id="editModal" class="modal"><div class="modal-content" style="padding:20px;"><h3 id="txt-edit-title">تعديل البيانات</h3><input type="hidden" id="editKey"><input type="text" id="editId" style="width:100%; padding:10px; margin:5px 0;"><input type="number" id="editTime" style="width:100%; padding:10px; margin:5px 0;"><button class="btn btn-primary" id="txt-save" onclick="saveEdit()">حفظ</button><button class="btn btn-danger" id="txt-delete" onclick="deleteBike()">حذف</button><button class="btn btn-dark" id="txt-cancel-2" onclick="closeModals()">إلغاء</button></div></div>
 
 <script>
     const firebaseConfig = {
@@ -81,19 +84,84 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+    
     let isAdmin = false;
+    let currentLang = 'ar';
     let selectedBikeId = null;
     let allBikes = {};
 
+    const languages = {
+        ar: {
+            title: "بي برو - سحابي",
+            loginBtn: "دخول",
+            passPlace: "كلمة السر",
+            listBtn: "➕ إضافة من القائمة (1-200)",
+            manualBtn: "⌨️ إضافة يدوية",
+            logout: "تسجيل خروج",
+            searchPlace: "ابحث عن سيكل...",
+            modalList: "اختر السيكل",
+            timeTitle: "اختر مدة الإيجار",
+            cancel: "إلغاء",
+            editTitle: "تعديل البيانات",
+            save: "حفظ",
+            delete: "حذف نهائي",
+            bikeTxt: "سيكل",
+            alertPass: "خطأ في كلمة السر",
+            promptManual: "أدخل رقم أو اسم السيكل:"
+        },
+        en: {
+            title: "BikePro - Cloud",
+            loginBtn: "Login",
+            passPlace: "Password",
+            listBtn: "➕ Add from List (1-200)",
+            manualBtn: "⌨️ Manual Add",
+            logout: "Logout",
+            searchPlace: "Search bike...",
+            modalList: "Select Bike",
+            timeTitle: "Select Duration",
+            cancel: "Cancel",
+            editTitle: "Edit Details",
+            save: "Save",
+            delete: "Delete",
+            bikeTxt: "Bike",
+            alertPass: "Wrong Password",
+            promptManual: "Enter Bike Number/Name:"
+        }
+    };
+
+    function toggleLang() {
+        currentLang = currentLang === 'ar' ? 'en' : 'ar';
+        document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+        updateUI();
+    }
+
+    function updateUI() {
+        const l = languages[currentLang];
+        document.getElementById('txt-title').innerText = l.title;
+        document.getElementById('txt-login-btn').innerText = l.loginBtn;
+        document.getElementById('passCode').placeholder = l.passPlace;
+        document.getElementById('txt-list-btn').innerText = l.listBtn;
+        document.getElementById('txt-manual-btn').innerText = l.manualBtn;
+        document.getElementById('txt-logout').innerText = l.logout;
+        document.getElementById('searchInput').placeholder = l.searchPlace;
+        document.getElementById('txt-modal-list').innerText = l.modalList;
+        document.getElementById('txt-time-title').innerText = l.timeTitle;
+        document.getElementById('txt-cancel-1').innerText = l.cancel;
+        document.getElementById('txt-cancel-2').innerText = l.cancel;
+        document.getElementById('txt-edit-title').innerText = l.editTitle;
+        document.getElementById('txt-save').innerText = l.save;
+        document.getElementById('txt-delete').innerText = l.delete;
+        renderBikes();
+    }
+
     function checkAdmin() {
-        const pass = document.getElementById('passCode').value;
-        if(pass === "1234") {
+        if(document.getElementById('passCode').value === "1234") {
             isAdmin = true;
             document.getElementById('loginSection').style.display = 'none';
             document.getElementById('adminTools').style.display = 'flex';
             renderBikes();
         } else {
-            alert("خطأ في كلمة السر");
+            alert(languages[currentLang].alertPass);
         }
     }
 
@@ -111,12 +179,11 @@
     }
 
     function addManual() {
-        let id = prompt("رقم أو اسم السيكل:");
+        let id = prompt(languages[currentLang].promptManual);
         if(id) { selectedBikeId = id; showTimeOptions(); }
     }
 
     function showTimeOptions() {
-        document.getElementById('targetBikeId').innerText = selectedBikeId;
         document.getElementById('bikeModal').style.display = 'none';
         document.getElementById('timeModal').style.display = 'flex';
     }
@@ -141,12 +208,12 @@
                 let diff = r.end - Date.now();
                 const box = document.createElement('div');
                 box.className = `bike-box ${diff <= 0 ? 'state-expired' : ''}`;
-                box.innerHTML = `<div style="font-size:0.6rem">سيكل</div><div style="font-weight:900;">${r.id}</div><div>${Math.ceil(diff/60000)}m</div>`;
+                box.innerHTML = `<div style="font-size:0.6rem">${languages[currentLang].bikeTxt}</div><div style="font-weight:900;">${r.id}</div><div>${Math.ceil(diff/60000)}m</div>`;
                 box.onclick = () => {
                     if(isAdmin) {
                         document.getElementById('editKey').value = key;
                         document.getElementById('editId').value = r.id;
-                        document.getElementById('displayEditId').innerText = r.id;
+                        document.getElementById('editTime').value = "";
                         document.getElementById('editModal').style.display = 'flex';
                     }
                 };
@@ -157,16 +224,15 @@
 
     function saveEdit() {
         const key = document.getElementById('editKey').value;
-        const newId = document.getElementById('editId').value;
         const addMins = parseInt(document.getElementById('editTime').value) || 0;
         db.ref('rentals/'+key).once('value', s => {
-            db.ref('rentals/'+key).update({ id: newId, end: s.val().end + (addMins * 60000) });
+            db.ref('rentals/'+key).update({ id: document.getElementById('editId').value, end: s.val().end + (addMins * 60000) });
         });
         closeModals();
     }
 
     function deleteBike() {
-        if(confirm("حذف؟")) {
+        if(confirm(currentLang === 'ar' ? "حذف؟" : "Delete?")) {
             db.ref('rentals/'+document.getElementById('editKey').value).remove();
             closeModals();
         }
