@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bike Pro Cloud - Sultan Edition</title>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    
+    <style>
+        :root { --primary: #00b894; --secondary: #0984e3; --danger: #d63031; --warning: #f1c40f; --dark: #2d3436; --light: #f1f2f6; }
+        * { box-sizing: border-box; font-family: system-ui, sans-serif; }
+        body { background: var(--light); padding: 10px; margin: 0; }
+        
+        /* إخفاء أدوات المدير افتراضياً */
+        .admin-only { display: none; }
+        
+        .header { text-align: center; margin-bottom: 15px; }
+        .search-input { width: 100%; padding: 12px; border-radius: 15px; border: 2px solid #ddd; text-align: center; margin-bottom: 10px; }
+        
+        .btn { padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; border: none; cursor: pointer; transition: 0.2s; }
+        .btn-primary { background: var(--secondary); color: white; }
+        .btn-dark { background: var(--dark); color: white; }
+        .btn-success { background: var(--primary); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        
+        #activeRentals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+        .bike-box { background: white; border-radius: 8px; padding: 10px 2px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-bottom: 4px solid #ccc; }
+        .state-active { border-bottom-color: var(--primary); }
+        .state-expired { border-bottom-color: var(--danger); animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.7; } }
+
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 9999; }
+        .popup { background: white; padding: 20px; border-radius: 25px; width: 92%; max-width: 350px; text-align: center; }
+    </style>
+</head>
+<body onclick="initAudio()">
+
+<div class="header">
+    <h2 style="margin:0;">بي برو - <span id="userRole">مراقب</span></h2>
+    <button class="btn btn-dark" style="width:auto; padding:5px 15px; margin-top:5px; font-size:0.7rem;" onclick="checkAdmin()">دخول المدير</button>
+</div>
+
+<div class="search-container">
+    <input type="text" id="searchInput" class="search-input" placeholder="ابحث عن رقم السيكل..." oninput="renderLocal()">
+</div>
+
+<div class="admin-only" id="adminTools" style="margin-bottom:15px;">
+    <div style="display:flex; gap:10px;">
+        <button class="btn btn-primary" onclick="showList()">القائمة</button>
+        <button class="btn btn-dark" onclick="showManual()">إضافة يدوي</button>
+    </div>
+</div>
+
+<div id="activeRentals"></div>
+
+<audio id="beep" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+
+<script>
+    // ⚠️ سلطان: ضع بياناتك من Firebase هنا ليعمل الربط السحابي
+    const firebaseConfig = {
+        apiKey: "ضع_API_KEY_هنا",
+        databaseURL: "ضع_رابط_القاعدة_هنا",
+        projectId: "ضع_ID_المشروع_هنا",
+        appId: "ضع_APP_ID_هنا"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    let isAdmin = false;
+    let cloudData = {};
+
+    // نظام التحقق من المدير
+    function checkAdmin() {
+        let p = prompt("أدخل كلمة السر:");
+        if(p === "1234") { // غير الرقم السري هنا
+            isAdmin = true;
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+            document.getElementById('userRole').innerText = "المدير";
+            renderLocal();
+        }
+    }
+
+    // جلب البيانات فوراً من السحاب
+    db.ref('rentals').on('value', (snapshot) => {
+        cloudData = snapshot.val() || {};
+        renderLocal();
+    });
+
+    function renderLocal() {
+        const area = document.getElementById('activeRentals');
+        area.innerHTML = '';
+        const query = document.getElementById('searchInput').value.toLowerCase();
+
+        Object.keys(cloudData).forEach(key => {
+            const r = cloudData[key];
+            if(r.id.toString().toLowerCase().includes(query)) {
+                let diff = r.paused ? r.rem : r.end - Date.now();
+                if(diff < 0) diff = 0;
+
+                const box = document.createElement('div');
+                box.className = `bike-box ${diff <= 0 ? 'state-expired' : 'state-active'}`;
+                box.innerHTML = `<div style="font-size:0.8rem">${r.id}</div><div style="font-weight:900">${Math.ceil(diff/60000)}m</div>`;
+                
+                // التحكم للمدير فقط
+                if(isAdmin) {
+                    box.onclick = () => alert("تم اختيار سيكل " + r.id + " (يمكنك إضافة نافذة التحكم هنا)");
+                }
+                area.appendChild(box);
+            }
+        });
+    }
+
+    function showManual() {
+        let id = prompt("رقم أو اسم السيكل:");
+        let mins = prompt("الدقائق:");
+        if(id && mins) {
+            db.ref('rentals').push({
+                id: id,
+                end: Date.now() + (parseInt(mins) * 60000),
+                paused: false,
+                rem: 0
+            });
+        }
+    }
+    
+    let isAudioReady = false;
+    function initAudio() { if(!isAudioReady) { document.getElementById('beep').play(); document.getElementById('beep').pause(); isAudioReady = true; } }
+    setInterval(renderLocal, 10000); // تحديث الواجهة كل 10 ثواني
+</script>
+</body>
+</html>
