@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BikePro - Cloud Sync</title>
+    <title>BikePro - Full Control</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
@@ -41,11 +41,12 @@
     <h2 id="txt-title">بي برو - سحابي</h2>
     <div id="adminArea">
         <div id="loginSection">
-            <input type="password" id="passCode" placeholder="Password" style="width:60%; padding:8px; border-radius:8px; border:1px solid #ddd; text-align:center;">
+            <input type="password" id="passCode" placeholder="كلمة السر" style="width:60%; padding:8px; border-radius:8px; border:1px solid #ddd; text-align:center;">
             <button onclick="checkAdmin()" id="txt-login-btn" style="padding: 8px 15px; border-radius: 8px; background: var(--dark); color: white; border: none;">دخول</button>
         </div>
         <div id="adminTools" style="display:none; flex-direction: column; gap: 5px;">
-            <button class="btn btn-primary" id="txt-list-btn" onclick="openBikeList()">➕ قائمة السياكل (تحديد متعدد)</button>
+            <button class="btn btn-primary" id="txt-list-btn" onclick="openBikeList()">➕ قائمة السياكل (متعدد)</button>
+            <button class="btn btn-dark" id="txt-manual-btn" onclick="addManual()">⌨️ إضافة يدوية</button>
             <button onclick="location.reload()" id="txt-logout" style="font-size: 0.7rem; background: none; border: none; color: gray;">تسجيل خروج</button>
         </div>
     </div>
@@ -73,7 +74,19 @@
     </div>
 </div>
 
-<div id="editModal" class="modal"><div class="modal-content" style="padding:20px;"><h3 id="txt-edit-title">تعديل</h3><input type="hidden" id="editKey"><input type="number" id="editTime" style="width:100%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #ddd;" placeholder="+ دقائق"><button class="btn btn-primary" id="txt-save" onclick="saveEdit()">حفظ</button><button class="btn btn-danger" id="txt-delete" onclick="deleteBike()">إزالة</button><button class="btn btn-dark" id="txt-cancel" onclick="closeModals()">إلغاء</button></div></div>
+<div id="editModal" class="modal">
+    <div class="modal-content" style="padding:20px;">
+        <h3 id="txt-edit-title">تعديل البيانات</h3>
+        <input type="hidden" id="editKey">
+        <label style="font-size:0.8rem; display:block; text-align:right;">رقم/اسم السيكل:</label>
+        <input type="text" id="editId" style="width:100%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #ddd;">
+        <label style="font-size:0.8rem; display:block; text-align:right;">إضافة وقت (دقائق):</label>
+        <input type="number" id="editTime" style="width:100%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #ddd;" placeholder="مثال: 10">
+        <button class="btn btn-primary" id="txt-save" onclick="saveEdit()">حفظ التعديلات</button>
+        <button class="btn btn-danger" id="txt-delete" onclick="deleteBike()">إزالة السيكل</button>
+        <button class="btn btn-dark" id="txt-cancel" onclick="closeModals()">إلغاء</button>
+    </div>
+</div>
 
 <script>
     const firebaseConfig = {
@@ -92,14 +105,11 @@
     let allBikes = {};
     let serverOffset = 0;
 
-    // مزامنة الوقت مع سيرفر جوجل
-    db.ref(".info/serverTimeOffset").on("value", (snap) => {
-        serverOffset = snap.val();
-    });
+    db.ref(".info/serverTimeOffset").on("value", (snap) => { serverOffset = snap.val(); });
 
     const languages = {
-        ar: { title: "بي برو - سحابي", loginBtn: "دخول", listBtn: "➕ قائمة السياكل", searchPlace: "ابحث عن سيكل...", modalList: "اختر السياكل", cancel: "إلغاء", editTitle: "تعديل البيانات", save: "حفظ", delete: "إزالة", bikeTxt: "سيكل", activeAlert: "محجوز!", start30: "بدأ (30د)", start60: "بدأ (60د)" },
-        en: { title: "BikePro - Cloud", loginBtn: "Login", listBtn: "➕ Bike List", searchPlace: "Search bike...", modalList: "Select Bikes", cancel: "Cancel", editTitle: "Edit Details", save: "Save", delete: "Remove", bikeTxt: "Bike", activeAlert: "Active!", start30: "Start (30m)", start60: "Start (60m)" }
+        ar: { title: "بي برو - سحابي", loginBtn: "دخول", listBtn: "➕ قائمة السياكل (متعدد)", manualBtn: "⌨️ إضافة يدوية", searchPlace: "ابحث عن سيكل...", modalList: "اختر السياكل", cancel: "إلغاء", editTitle: "تعديل البيانات", save: "حفظ التعديلات", delete: "إزالة السيكل", bikeTxt: "سيكل", activeAlert: "محجوز حالياً!", promptManual: "أدخل رقم أو اسم السيكل الجديد:" },
+        en: { title: "BikePro - Cloud", loginBtn: "Login", listBtn: "➕ Bike List (Multi)", manualBtn: "⌨️ Manual Add", searchPlace: "Search bike...", modalList: "Select Bikes", cancel: "Cancel", editTitle: "Edit Details", save: "Save Changes", delete: "Remove Bike", bikeTxt: "Bike", activeAlert: "Already Active!", promptManual: "Enter new bike number/name:" }
     };
 
     function toggleLang() {
@@ -113,14 +123,13 @@
         document.getElementById('txt-title').innerText = l.title;
         document.getElementById('txt-login-btn').innerText = l.loginBtn;
         document.getElementById('txt-list-btn').innerText = l.listBtn;
+        document.getElementById('txt-manual-btn').innerText = l.manualBtn;
         document.getElementById('searchInput').placeholder = l.searchPlace;
         document.getElementById('txt-modal-list').innerText = l.modalList;
         document.getElementById('txt-edit-title').innerText = l.editTitle;
         document.getElementById('txt-save').innerText = l.save;
         document.getElementById('txt-delete').innerText = l.delete;
         document.getElementById('txt-cancel').innerText = l.cancel;
-        document.getElementById('txt-start-30').innerText = l.start30;
-        document.getElementById('txt-start-60').innerText = l.start60;
         renderBikes();
     }
 
@@ -156,6 +165,17 @@
         document.getElementById('bikeModal').style.display = 'flex';
     }
 
+    function addManual() {
+        let id = prompt(languages[currentLang].promptManual);
+        if(id) {
+            const activeIds = Object.values(allBikes).map(b => b.id.toString());
+            if(activeIds.includes(id.toString())) return alert(languages[currentLang].activeAlert);
+            selectedBikes = [id];
+            let mins = confirm(currentLang === 'ar' ? "تأكيد 30 دقيقة؟ (إلغاء لـ 60)" : "Confirm 30m? (Cancel for 60)") ? 30 : 60;
+            startMultiSelect(mins);
+        }
+    }
+
     function startMultiSelect(mins) {
         if (selectedBikes.length === 0) return;
         const now = Date.now() + serverOffset;
@@ -186,6 +206,8 @@
                 if(isAdmin) {
                     box.onclick = () => {
                         document.getElementById('editKey').value = key;
+                        document.getElementById('editId').value = r.id;
+                        document.getElementById('editTime').value = "";
                         document.getElementById('editModal').style.display = 'flex';
                     };
                 }
@@ -196,23 +218,28 @@
 
     function saveEdit() {
         const key = document.getElementById('editKey').value;
+        const newId = document.getElementById('editId').value;
         const addMins = parseInt(document.getElementById('editTime').value) || 0;
+        
         db.ref('rentals/'+key).once('value', s => {
-            db.ref('rentals/'+key).update({ end: s.val().end + (addMins * 60000) });
+            db.ref('rentals/'+key).update({ 
+                id: newId, 
+                end: s.val().end + (addMins * 60000) 
+            });
         });
         closeModals();
     }
 
     function deleteBike() {
-        db.ref('rentals/'+document.getElementById('editKey').value).remove();
-        closeModals();
+        if(confirm(currentLang === 'ar' ? "حذف السيكل؟" : "Delete?")) {
+            db.ref('rentals/'+document.getElementById('editKey').value).remove();
+            closeModals();
+        }
     }
 
-    function closeModals() {
-        document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
-    }
+    function closeModals() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
 
-    setInterval(renderBikes, 10000); // تحديث الواجهة كل 10 ثواني
+    setInterval(renderBikes, 10000);
 </script>
 </body>
 </html>
